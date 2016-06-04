@@ -29,7 +29,7 @@ public class SearchActivity extends AppCompatActivity
     public final static String SEARCH_STR = "SEARCH_STR";
     public final static String IMAGE_OPENED = "IMAGE_OPENED";
     public final static String PAGE_ON_VIEW = "PAGE_ON_VIEW";
-    public final static Integer PER_PAGE = 5;
+    public final static Integer PER_PAGE = 50;
     private ListView listView;
     private PanZoomImageViewPager viewPager;
     private LinearLayout pagerContainer;
@@ -44,6 +44,7 @@ public class SearchActivity extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
+        pageOnView = 0;
         progress_bar = findViewById(R.id.progress_bar);
         listView = (ListView) findViewById(R.id.listView);
         pagerContainer = (LinearLayout) findViewById(R.id.pager_container);
@@ -78,8 +79,8 @@ public class SearchActivity extends AppCompatActivity
         savedSearchString = MainApplication.loadFromPrefs(SEARCH_STR, "");
         if (savedSearchString.length() > 0)
         {
-            pageOnView = MainApplication.loadFromPrefsInt(PAGE_ON_VIEW, 1);
-            showSearchResult(savedSearchString, pageOnView, pageOnView * PER_PAGE);
+            pageOnView = MainApplication.loadFromPrefsInt(PAGE_ON_VIEW, 0);
+            showSearchResult();
         }
         super.onResume();
     }
@@ -111,7 +112,7 @@ public class SearchActivity extends AppCompatActivity
         {
             theTextArea.setText(savedSearchString);
             pageOnView = MainApplication.loadFromPrefsInt(PAGE_ON_VIEW, 1);
-            showSearchResult(savedSearchString, pageOnView, pageOnView * PER_PAGE);
+            showSearchResult();
         }
         searchView.setOnCloseListener(new SearchView.OnCloseListener()
         {
@@ -159,8 +160,10 @@ public class SearchActivity extends AppCompatActivity
                 {
                     imageAdapter.clear();
                 }
+                savedSearchString = query;
+                pageOnView = 0;
                 MainApplication.saveToPrefs(SEARCH_STR, theTextArea.getText().toString().trim());
-                showSearchResult(query, 1, PER_PAGE);
+                showSearchResult();
                 return false;
             }
 
@@ -173,23 +176,20 @@ public class SearchActivity extends AppCompatActivity
                 }
                 return false;
             }
-
         });
-
         return true;
     }
 
-    private void showSearchResult(final String query, final Integer pageNo, final Integer perPage)
+    private void showSearchResult()
     {
-        if (query == null || query.length() < 1 || imageAdapter == null)
+        if (savedSearchString == null || savedSearchString.length() < 1 || imageAdapter == null)
         {
             imageAdapter = new ImageAdapter(SearchActivity.this, viewPager, pagerContainer, new Photos(), new OnEndOfListListener()
             {
                 @Override
                 public void addMorePhotos()
                 {
-                    pageOnView++;
-                    showSearchResult(query, pageOnView, perPage);
+                    showSearchResult();
                 }
             });
             listView.setAdapter(imageAdapter);
@@ -212,8 +212,13 @@ public class SearchActivity extends AppCompatActivity
                 protected ResponseOrError<?> doInBackground()
                 {
                     ServerAPIClient client = new ServerAPIClient();
+                    if (pageOnView == null)
+                    {
+                        pageOnView = 0;
+                    }
+                    pageOnView++;
                     String url = "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=" + API_KEY +
-                            "&format=json&nojsoncallback=1&page=" + pageNo + "&per_page=" + perPage + "&text=observatory&safe_search=" + query.trim();
+                            "&format=json&nojsoncallback=1&page=" + pageOnView + "&per_page=" + PER_PAGE + "&text=" + savedSearchString.trim();
                     ResponseOrError<ResponsePhoto> response = client.addRequest_synchronous_custom(Request.Method.GET, url, null, ResponsePhoto.class, null, null);
                     return response;
                 }
